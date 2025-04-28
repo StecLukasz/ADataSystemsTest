@@ -1,0 +1,9 @@
+spring:
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/filesdb
+    username: postgres
+    password: Java123!
+
+logging:
+  level:
+    org.springframework.r2dbc: DEBUG
