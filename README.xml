@@ -1,0 +1,172 @@
+# 📁 File Upload Service — Spring WebFlux Project
+
+        Projekt realizuje **upload plików** poprzez **Spring WebFlux** z zachowaniem reaktywności oraz testami **jednostkowymi** i **integracyjnymi**.
+
+        ## 🚀 Opis projektu
+
+        Aplikacja umożliwia:
+
+        - 📤 Upload jednego lub wielu plików poprzez REST API (`/files`)
+        - 🗄️ Zapisanie metadanych pliku (nazwa, rozmiar, suma kontrolna) do bazy danych (przykładowo R2DBC/PostgreSQL)
+        - 🧪 Testowanie działania za pomocą testów jednostkowych (JUnit5 + Mockito) oraz integracyjnych (WebTestClient)
+        - 🔥 Obsługę dużych plików (nawet do 1 GB, bez obciążania pamięci RAM)
+
+        Projekt wykorzystuje:
+
+        - **Spring Boot 3.4+**
+        - **Spring WebFlux**
+        - **R2DBC** (reaktywne operacje na bazie danych)
+        - **JUnit 5**, **Mockito**, **AssertJ**
+        - **Reactor Core**
+
+        ---
+
+        ## 🛠️ Technologie
+
+        - Java 17+
+        - Spring Boot
+        - Spring WebFlux
+        - Spring Data R2DBC
+        - PostgreSQL (lub inna baza danych)
+        - Maven
+        - Reactor (Flux, Mono)
+        - JUnit 5 + Mockito
+
+        ---
+
+        ## 📄 Struktura projektu
+
+        src/
+        ├── main/
+        │   ├── java/com/example/asd/
+        │   │   ├── controller/         # REST API
+        │   │   ├── dto/                # DTO zwracane na REST
+        │   │   ├── model/              # Encje (FileMetadata)
+        │   │   ├── repository/         # Repozytorium R2DBC
+        │   │   └── service/            # Serwis do obsługi plików
+        │   └── resources/              # Konfiguracja i pliki properties
+        ├── test/
+        │   ├── java/com/example/asd/
+        │   │   ├── integration/        # Testy integracyjne (WebTestClient)
+        │   │   ├── unit/               # Testy jednostkowe (Service layer)
+        │   │   └── util/               # Narzędzia np. generowanie plików
+        │   └── resources/              # Pliki testowe (testfile.txt itp.)
+
+        ## 📬 Endpointy API
+
+        ### 📥 POST `/files`
+        **Opis:** Wysyła jeden lub wiele plików do zapisania.
+
+        - **Content-Type:** `multipart/form-data`
+        - **Parametr:** `files` (wiele plików)
+        - **Odpowiedź:** JSON z listą przesłanych plików.
+
+        Przykład odpowiedzi:
+        ```json
+        [
+        {
+        "fileName": "testfile.txt",
+        "size": 12345,
+        "checksum": "a5dcb4e22f2f4f6d..."
+        }
+        ]
+
+        ## 🛠️ Jak zbudować projekt
+
+        1. Skonfiguruj bazę danych (np. PostgreSQL).
+        2. Ustaw dane połączenia w pliku `src/main/resources/application.yml`:
+
+        ```yaml
+        spring:
+        r2dbc:
+        url: r2dbc:postgresql://localhost:5432/your_database
+        username: your_username
+        password: your_password
+        sql:
+        init:
+        mode: always
+
+        server:
+        port: 8080
+        ```
+
+        3. Zbuduj projekt poleceniem:
+
+        ```bash
+        ./mvnw clean install
+        ```
+
+        4. Uruchom aplikację:
+
+        ```bash
+        ./mvnw spring-boot:run
+        ```
+
+        ---
+
+        ## 🧪 Jak uruchomić testy
+
+        Uruchom wszystkie testy komendą:
+
+        ```bash
+        ./mvnw test
+        ```
+
+        Testy obejmują:
+
+        - Testy jednostkowe (`unit`) — testy warstwy serwisowej
+        - Testy integracyjne (`integration`) — testy REST API
+
+        ---
+
+        ## 📬 Przykładowe wywołania API
+
+        ### 📥 POST `/files`
+        **Opis:** Wysyła jeden lub wiele plików do zapisania.
+
+        - **Content-Type:** `multipart/form-data`
+        - **Parametr:** `files` (wiele plików)
+        - **Odpowiedź:** JSON z listą przesłanych plików.
+
+        Przykład odpowiedzi:
+        ```json
+        [
+        {
+        "fileName": "testfile.txt",
+        "size": 12345,
+        "checksum": "a5dcb4e22f2f4f6d..."
+        }
+        ]
+        ```
+
+        Przykład wywołania przez `curl`:
+
+        Wysłanie jednego pliku:
+
+        ```bash
+        curl -v -F "files=@src/test/resources/testfile.txt" http://localhost:8080/files
+        ```
+
+        Wysłanie wielu plików:
+
+        ```bash
+        curl -v -F "files=@src/test/resources/testfile1.txt" -F "files=@src/test/resources/testfile2.txt" http://localhost:8080/files
+        ```
+
+        ---
+
+
+        ## ⚙️ Wymagania systemowe
+
+        - Java 17+
+        - Maven 3.6+
+        - PostgreSQL (lub inna kompatybilna baza)
+        - IntelliJ IDEA lub inne IDE
+        - Zalecane min. 4 GB RAM dla obsługi plików powyżej 500 MB
+
+        ---
+
+
+        ## 📚 Autor
+
+        Projekt stworzony przez **Łukasz Stec**.
