@@ -1,7 +1,11 @@
 package com.example.asd.service;
 
-import java.io.InputStream;
+import org.springframework.core.io.buffer.DataBuffer;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import java.security.MessageDigest;
 
 public interface StorageService {
-    void store(String fileName, InputStream content);
+    Mono<Long> store(String fileName, Flux<DataBuffer> content, MessageDigest digest);
 }

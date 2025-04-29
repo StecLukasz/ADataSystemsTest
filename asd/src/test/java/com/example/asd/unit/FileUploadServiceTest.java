@@ -6,6 +6,7 @@ import com.example.asd.service.FileUploadService;
 import com.example.asd.service.StorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -16,11 +17,12 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.Base64;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 class FileUploadServiceTest {
@@ -43,23 +45,34 @@ class FileUploadServiceTest {
     void shouldProcessFileCorrectly() {
         // given
         var fileContent = "Test file content";
-        DataBuffer buffer = new DefaultDataBufferFactory().wrap(fileContent.getBytes(StandardCharsets.UTF_8));
+        var fileBytes = fileContent.getBytes(StandardCharsets.UTF_8);
+        var buffer = new DefaultDataBufferFactory().wrap(fileBytes);
+        var expectedFileName = "testfile.txt";
+        var expectedSize = (long) fileBytes.length;
+
         FilePart filePart = mock(FilePart.class);
         when(filePart.content()).thenReturn(Flux.just(buffer));
-        when(filePart.filename()).thenReturn("testfile.txt");
+        when(filePart.filename()).thenReturn(expectedFileName);
 
-        var metadata = new FileMetadata(UUID.randomUUID(), "testfile.txt", (long) fileContent.length(), "dummyHash");
-        when(repository.save(any(FileMetadata.class))).thenReturn(Mono.just(metadata));
+        when(storageService.store(eq(expectedFileName), any(Flux.class), any(MessageDigest.class)))
+                .thenReturn(Mono.just(expectedSize));
+        when(repository.save(any(FileMetadata.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
         // when
         var result = underTest.processFile(filePart);
 
         // then
         StepVerifier.create(result)
-                .expectNextMatches(dto -> dto.fileName().equals("testfile.txt") && dto.size() == fileContent.length())
+                .assertNext(dto -> {
+                    assertThat(dto.fileName()).isEqualTo(expectedFileName);
+                    assertThat(dto.size()).isEqualTo(expectedSize);
+                    assertThat(dto.digest()).isNotNull();
+                    assertThat(dto.digest()).isNotEmpty();
+                })
                 .verifyComplete();
 
-        verify(storageService).store(eq("testfile.txt"), any(ByteArrayInputStream.class));
+        verify(storageService).store(eq(expectedFileName), any(Flux.class), any(MessageDigest.class));
         verify(repository).save(any(FileMetadata.class));
     }
 
@@ -67,24 +80,29 @@ class FileUploadServiceTest {
     void shouldReturnErrorWhenStorageFails() {
         // given
         var fileContent = "Broken file content";
-        DataBuffer buffer = new DefaultDataBufferFactory().wrap(fileContent.getBytes(StandardCharsets.UTF_8));
+        var fileBytes = fileContent.getBytes(StandardCharsets.UTF_8);
+        var buffer = new DefaultDataBufferFactory().wrap(fileBytes);
+        var expectedFileName = "brokenfile.txt";
+
         FilePart filePart = mock(FilePart.class);
         when(filePart.content()).thenReturn(Flux.just(buffer));
-        when(filePart.filename()).thenReturn("brokenfile.txt");
+        when(filePart.filename()).thenReturn(expectedFileName);
 
-        doThrow(new RuntimeException("Storage error")).when(storageService)
-                .store(eq("brokenfile.txt"), any(ByteArrayInputStream.class));
+        when(storageService.store(eq(expectedFileName), any(Flux.class), any(MessageDigest.class)))
+                .thenReturn(Mono.error(new RuntimeException("Błąd przetwarzania pliku")));
 
         // when
         var result = underTest.processFile(filePart);
 
         // then
         StepVerifier.create(result)
-                .expectErrorMatches(throwable -> throwable instanceof RuntimeException
-                        && throwable.getMessage().contains("Błąd przetwarzania pliku"))
+                .expectErrorSatisfies(throwable -> {
+                    assertThat(throwable).isInstanceOf(RuntimeException.class);
+                    assertThat(throwable.getMessage()).contains("Błąd przetwarzania pliku");
+                })
                 .verify();
 
-        verify(storageService).store(eq("brokenfile.txt"), any(ByteArrayInputStream.class));
+        verify(storageService).store(eq(expectedFileName), any(Flux.class), any(MessageDigest.class));
         verifyNoInteractions(repository);
     }
 
@@ -92,14 +110,16 @@ class FileUploadServiceTest {
     void shouldReturnErrorWhenHashGenerationFails() {
         // given
         var fileContent = "Invalid content for hashing";
-        DataBuffer buffer = new DefaultDataBufferFactory().wrap(fileContent.getBytes(StandardCharsets.UTF_8));
+        var fileBytes = fileContent.getBytes(StandardCharsets.UTF_8);
+        var buffer = new DefaultDataBufferFactory().wrap(fileBytes);
+        var expectedFileName = "brokenfile.txt";
+
         FilePart filePart = mock(FilePart.class);
-
         when(filePart.content()).thenReturn(Flux.just(buffer));
-        when(filePart.filename()).thenReturn("brokenfile.txt");
+        when(filePart.filename()).thenReturn(expectedFileName);
 
-        try (var mocked = mockStatic(MessageDigest.class)) {
-            mocked.when(() -> MessageDigest.getInstance("SHA-256"))
+        try (var mockedDigest = mockStatic(MessageDigest.class)) {
+            mockedDigest.when(() -> MessageDigest.getInstance("SHA-256"))
                     .thenThrow(new RuntimeException("Hashing algorithm error"));
 
             // when
@@ -107,8 +127,10 @@ class FileUploadServiceTest {
 
             // then
             StepVerifier.create(result)
-                    .expectErrorMatches(throwable -> throwable instanceof RuntimeException
-                            && throwable.getMessage().contains("Błąd przetwarzania pliku"))
+                    .expectErrorSatisfies(throwable -> {
+                        assertThat(throwable).isInstanceOf(RuntimeException.class);
+                        assertThat(throwable.getMessage()).contains("Błąd przetwarzania pliku");
+                    })
                     .verify();
 
             verifyNoInteractions(repository);
